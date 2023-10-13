@@ -67,6 +67,10 @@ export class App {
         const container = createElement('div', { id: 'incy-wincy-ancient-relics' });
 
         for (const skill of game.skills.allObjects) {
+            if (!skill.ancientRelics?.length) {
+                continue;
+            }
+
             const row = createElement('div', { id: skill.id, className: 'myth-relic-row' });
 
             for (const ancientRelic of skill.ancientRelics) {
@@ -74,8 +78,10 @@ export class App {
                 row.append(relic);
             }
 
-            const masterRelic = this.createRelic(skill, skill.completedAncientRelic);
-            row.append(masterRelic);
+            if (skill.completedAncientRelic) {
+                const masterRelic = this.createRelic(skill, skill.completedAncientRelic);
+                row.append(masterRelic);
+            }
 
             container.append(row);
         }
