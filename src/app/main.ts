@@ -62,6 +62,8 @@ export class App {
             tooltip.destroy();
         }
 
+        this.tooltips = [];
+
         const container = createElement('div', { id: 'incy-wincy-ancient-relics' });
 
         for (const skill of game.skills.allObjects) {
@@ -115,11 +117,12 @@ export class App {
             })
         );
 
-        tippy(relic, {
-            allowHTML: true,
-            delay: 0,
-            duration: 0,
-            content: `
+        this.tooltips.push(
+            tippy(relic, {
+                allowHTML: true,
+                delay: 0,
+                duration: 0,
+                content: `
 <div class="myth-ancient-relic-tooltip">
     <div>${ancientRelic.name}</div>
     <div class="mt-1">${
@@ -129,7 +132,8 @@ export class App {
     }</div>
 </div>
         `
-        });
+            })
+        );
 
         return relic;
     }
