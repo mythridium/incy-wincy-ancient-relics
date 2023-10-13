@@ -1,0 +1,30 @@
+{
+    "name": "myth-incy-wincy-ancient-relics",
+    "version": "1.0.0",
+    "description": "Melvor Idle mod that adds an incy wincy view for ancient relics",
+    "author": "Mythridium",
+    "license": "ISC",
+    "main": "manifest.json",
+    "scripts": {
+        "zip": "ts-node-esm -P tsconfig.node.json tools/zip.mts",
+        "build": "webpack && npm run zip"
+    },
+    "devDependencies": {
+        "@types/archiver": "5.3.2",
+        "archiver": "6.0.0",
+        "copy-webpack-plugin": "11.0.0",
+        "css-loader": "6.8.1",
+        "del": "7.1.0",
+        "melvor-types": "https://github.com/GamesByMalcsPtyLtd/Melvor-Typing-Project/tarball/bd5611f",
+        "sass": "1.69.3",
+        "sass-loader": "13.3.2",
+        "style-loader": "3.3.3",
+        "terser-webpack-plugin": "5.3.9",
+        "tippy.js": "6.3.7",
+        "ts-loader": "9.4.4",
+        "ts-node": "10.9.1",
+        "typescript": "5.2.2",
+        "webpack": "5.88.2",
+        "webpack-cli": "5.1.4"
+    }
+}

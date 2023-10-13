@@ -1,0 +1,5 @@
+{
+    "namespace": "mythIncyWincyAncientRelics",
+    "setup": "setup.mjs",
+    "icon": "assets/logo.png"
+}
