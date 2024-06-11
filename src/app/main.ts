@@ -6,10 +6,29 @@ export class App {
 
     private isSummary = false;
     private tooltips: TippyTooltip[] = [];
+    // @ts-ignore // TODO: TYPES
+    private realm = game.defaultRealm;
 
     constructor(private readonly context: Modding.ModContext) {}
 
     public async init() {
+        this.context.onModsLoaded(() => {
+            // @ts-ignore // TODO: TYPES
+            this.context.patch(AncientRelicsMenuElement, 'showAncientRelics').after(() => {
+                if (!game.currentGamemode.allowAncientRelicDrops) {
+                    return;
+                }
+
+                const modal = document.querySelector('#modal-ancient-relics .block-content');
+
+                if (!modal) {
+                    return;
+                }
+
+                this.render(modal, this.realm);
+            });
+        });
+
         this.context.onInterfaceReady(() => {
             if (!game.currentGamemode.allowAncientRelicDrops) {
                 return;
@@ -37,21 +56,17 @@ export class App {
                     this.context.characterStorage.setItem(this.saveKey, this.isSummary);
                     switchButton.textContent = this.isSummary ? 'Hide Summary' : 'Show Summary';
 
-                    this.render(modal);
+                    this.toggleElements(modal);
                 };
 
                 header.prepend(switchButton);
             }
-
-            this.context.patch(<any>Skill, 'onAncientRelicUnlock').after(() => {
-                this.render(modal);
-            });
-
-            this.render(modal);
         });
     }
 
-    private render(modal: Element) {
+    // @ts-ignore // TODO: TYPES
+    private render(modal: Element, realm: Realm) {
+        this.realm = realm;
         const existing = document.getElementById('incy-wincy-ancient-relics');
 
         if (existing) {
@@ -66,37 +81,45 @@ export class App {
 
         const container = createElement('div', { id: 'incy-wincy-ancient-relics' });
 
+        // @ts-ignore // TODO: TYPES
+        const realmSelect = createElement('realm-tab-select', { classList: ['d-block', 'w-100', 'mb-2'] });
+
+        // @ts-ignore // TODO: TYPES
+        realmSelect.setOptions(game.realms.allObjects, realm => {
+            this.render(modal, realm);
+        });
+
+        container.append(realmSelect);
+
         for (const skill of game.skills.allObjects) {
-            if (!skill.ancientRelics?.length) {
+            // @ts-ignore // TODO: TYPES
+            if (!skill.hasAncientRelics) {
                 continue;
             }
 
-            const row = createElement('div', { id: skill.id, className: 'myth-relic-row' });
+            // @ts-ignore // TODO: TYPES
+            const relicSet = skill.ancientRelicSets.get(realm);
 
-            for (const ancientRelic of skill.ancientRelics) {
-                const relic = this.createRelic(skill, ancientRelic.relic);
-                row.append(relic);
+            if (relicSet) {
+                const row = createElement('div', { id: skill.id, className: 'myth-relic-row' });
+
+                for (const ancientRelic of relicSet.relicDrops) {
+                    const relic = this.createRelic(skill, relicSet, ancientRelic.relic);
+                    row.append(relic);
+                }
+
+                if (relicSet.completedRelic) {
+                    const masterRelic = this.createRelic(skill, relicSet, relicSet.completedRelic);
+                    row.append(masterRelic);
+                }
+
+                container.append(row);
             }
-
-            if (skill.completedAncientRelic) {
-                const masterRelic = this.createRelic(skill, skill.completedAncientRelic);
-                row.append(masterRelic);
-            }
-
-            container.append(row);
         }
 
         modal.append(container);
 
-        if (this.isSummary) {
-            this.show(container);
-            this.hide(modal.querySelector('.row'));
-            this.hide(document.querySelector('#modal-ancient-relics .block-header .dropdown .dropdown-toggle'));
-        } else {
-            this.hide(container);
-            this.show(modal.querySelector('.row'));
-            this.show(document.querySelector('#modal-ancient-relics .block-header .dropdown .dropdown-toggle'));
-        }
+        this.toggleElements(modal);
     }
 
     private show(element: Element | undefined) {
@@ -107,16 +130,33 @@ export class App {
         element?.classList.add('d-none');
     }
 
-    private createRelic(skill: AnySkill, ancientRelic: AncientRelic) {
+    private toggleElements(modal: Element) {
+        if (this.isSummary) {
+            this.show(document.querySelector('#incy-wincy-ancient-relics'));
+            this.hide(modal.querySelector('.row'));
+            this.hide(document.querySelector('#modal-ancient-relics .block-header .dropdown .dropdown-toggle'));
+            document
+                .querySelector('#modal-ancient-relics realm-tab-select')
+                .setAttribute('style', 'display:none !important');
+        } else {
+            this.hide(document.querySelector('#incy-wincy-ancient-relics'));
+            this.show(modal.querySelector('.row'));
+            this.show(document.querySelector('#modal-ancient-relics .block-header .dropdown .dropdown-toggle'));
+            document.querySelector('#modal-ancient-relics realm-tab-select').setAttribute('style', '');
+        }
+    }
+
+    // @ts-ignore // TODO: TYPES
+    private createRelic(skill: AnySkill, relicSet: AncientRelicSet, ancientRelic: AncientRelic) {
         const relic = createElement('div', {
             id: ancientRelic.id,
-            className: `myth-relic${this.isUnlocked(skill, ancientRelic) ? ' unlocked' : ' locked'}`
+            className: `myth-relic${this.isUnlocked(relicSet, ancientRelic) ? ' unlocked' : ' locked'}`
         });
 
         relic.append(
             createElement('img', {
                 attributes: [
-                    ['src', this.isMasterRelic(skill, ancientRelic) ? this.master : skill.media],
+                    ['src', this.isMasterRelic(relicSet, ancientRelic) ? this.master : skill.media],
                     ['height', '24'],
                     ['width', '24']
                 ]
@@ -132,8 +172,9 @@ export class App {
 <div class="myth-ancient-relic-tooltip">
     <div>${ancientRelic.name}</div>
     <div class="mt-1">${
-        this.isUnlocked(skill, ancientRelic) || this.isMasterRelic(skill, ancientRelic)
-            ? describeModifierData(ancientRelic.modifiers)
+        this.isUnlocked(relicSet, ancientRelic) || this.isMasterRelic(relicSet, ancientRelic)
+            ? // @ts-ignore // TODO: TYPES
+              ancientRelic.stats.describeAsSpanHTML()
             : '???'
     }</div>
 </div>
@@ -144,15 +185,18 @@ export class App {
         return relic;
     }
 
-    private isUnlocked(skill: AnySkill, relic: AncientRelic) {
-        if (this.isMasterRelic(skill, relic)) {
-            return (<any>skill).hasMasterRelic;
+    // @ts-ignore // TODO: TYPES
+    private isUnlocked(relicSet: AncientRelicSet, relic: AncientRelic) {
+        if (this.isMasterRelic(relicSet, relic)) {
+            // @ts-ignore // TODO: TYPES
+            return relic.skill.hasMasterRelic(relicSet.realm);
         }
-        const count = skill.getAncientRelicCount(relic);
-        return count >= 1;
+
+        return relicSet.foundRelics.get(relic) >= 1;
     }
 
-    private isMasterRelic(skill: AnySkill, relic: AncientRelic) {
-        return skill.completedAncientRelic.id === relic.id;
+    // @ts-ignore // TODO: TYPES
+    private isMasterRelic(relicSet: AncientRelicSet, relic: AncientRelic) {
+        return relicSet.completedRelic.id === relic.id;
     }
 }

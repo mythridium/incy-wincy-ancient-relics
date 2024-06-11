@@ -1,41 +1,48 @@
-import { existsSync, mkdirSync, createWriteStream, readdir } from 'fs';
-import { resolve, join } from 'path';
-import { deleteSync } from 'del';
+import { existsSync, createWriteStream } from 'fs';
+import { rm, mkdir } from 'fs/promises';
+import { resolve } from 'path';
 import archiver from 'archiver';
 import pkg from '../package.json' assert { type: 'json' };
 
-const dir = 'build';
-
-if (!existsSync(dir)) {
-    mkdirSync(dir);
-}
-
-const t = Date.now();
-const outname = `${pkg.name}.${t}.zip`;
-const output = createWriteStream(resolve(dir, outname));
-const archive = archiver('zip');
-
-output.on('close', () => {
-    console.log(outname + ': ' + archive.pointer() + ' total bytes');
-
-    deleteSync('packed');
-    readdir(dir, (err, files) => {
-        if (err) {
-            console.log(err);
+abstract class Zip {
+    public static async run(output: string, src: string, name: string) {
+        // if we cannot locate the existing build src, not much we can do at this stage, most
+        // likely a bug has been introduced.
+        if (!existsSync(src)) {
+            throw new Error(`Could not locate '${src}'.`);
         }
 
-        files.forEach(file => {
-            if (file !== outname) {
-                deleteSync(join(dir, file));
-            }
+        await mkdir(output);
+
+        const stream = createWriteStream(resolve(output, name));
+        const archive = archiver('zip');
+
+        stream.on('close', () => console.log(`${name}: ${archive.pointer()} bytes`));
+        archive.on('error', err => {
+            throw err;
         });
-    });
-});
 
-archive.on('error', err => {
-    throw err;
-});
+        archive.pipe(stream);
+        archive.directory(src, false);
 
-archive.pipe(output);
-archive.directory('packed/', false);
-archive.finalize();
+        await archive.finalize();
+    }
+}
+
+try {
+    const output = 'build';
+    const src = '.output';
+    const now = Date.now();
+    const fileName = `${pkg.name}-${pkg.version}--${now % 10000}.zip`;
+
+    // remove the existing output
+    await rm(output, { recursive: true, force: true });
+
+    // zip the build src into the output
+    await Zip.run(output, src, fileName);
+
+    // remove the existing build src
+    await rm(src, { recursive: true, force: true });
+} catch (exception) {
+    console.error(exception);
+}

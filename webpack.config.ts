@@ -1,13 +1,16 @@
 import CopyPlugin from 'copy-webpack-plugin';
 import TerserPlugin from 'terser-webpack-plugin';
 import { resolve } from 'path';
+import { Configuration } from 'webpack';
 
-const config = {
-    mode: 'production',
-    entry: { setup: './src/setup.ts' },
+const isProduction = process.argv[process.argv.indexOf('--mode') + 1] === 'production';
+
+const config: Configuration = {
+    mode: 'development',
+    entry: { setup: 'src/setup.ts' },
     output: {
         filename: '[name].mjs',
-        path: resolve(__dirname, 'packed'),
+        path: resolve(__dirname, '.output'),
         library: {
             type: 'module'
         },
@@ -16,20 +19,16 @@ const config = {
     experiments: {
         outputModule: true
     },
-    optimization: {
-        minimize: true,
-        minimizer: [
-            new TerserPlugin({
-                terserOptions: { mangle: false, compress: false, keep_classnames: true, keep_fnames: true }
-            })
-        ]
+    performance: {
+        hints: false,
+        maxEntrypointSize: 512000,
+        maxAssetSize: 512000
     },
     plugins: [
         new CopyPlugin({
             patterns: [
                 { from: '**/*.html', to: '[path][name][ext]', context: 'src', noErrorOnMissing: true },
                 { from: 'manifest.json', to: 'manifest.json', context: 'src', noErrorOnMissing: true },
-                { from: 'data.json', to: 'data.json', context: 'src', noErrorOnMissing: true },
                 { from: 'assets', to: 'assets', noErrorOnMissing: true }
             ]
         })
@@ -45,6 +44,10 @@ const config = {
                 use: ['style-loader', 'css-loader', 'sass-loader']
             },
             {
+                test: /\.css$/i,
+                use: ['style-loader', 'css-loader']
+            },
+            {
                 test: /\.tsx?$/,
                 use: 'ts-loader',
                 exclude: /node_modules/
@@ -52,5 +55,35 @@ const config = {
         ]
     }
 };
+
+if (!isProduction) {
+    config.devtool = 'inline-source-map';
+    config.optimization = {
+        minimize: false,
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    mangle: false,
+                    compress: false,
+                    keep_classnames: true,
+                    keep_fnames: true,
+                    sourceMap: false
+                }
+            })
+        ]
+    };
+} else {
+    config.optimization = {
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    mangle: false,
+                    keep_classnames: true,
+                    keep_fnames: true
+                }
+            })
+        ]
+    };
+}
 
 export default config;
